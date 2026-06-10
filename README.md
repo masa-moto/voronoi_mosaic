@@ -24,7 +24,7 @@ options:
 # example 
 背景が単色の塗りつぶしで、ある程度コントラストがはっきりしているとわかりやすくなると思われる。
 
-![変換前](.example/test01.png)
+![変換前](example/test01.png)
 [元画像のURL](https://pixabay.com/ja/photos/%E9%B4%8E-%E9%B3%A5-%E5%8B%95%E7%89%A9-%E3%82%AB%E3%83%A2%E3%83%A1-%E6%B5%B7%E9%B3%A5-517091/)
 
-![変換後](.example/output.png)
+![変換後](example/output.png)
