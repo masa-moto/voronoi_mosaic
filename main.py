@@ -413,12 +413,14 @@ def main() -> None:
         input_path=args.input_path,
         seeds_per_region=args.seeds_per_region,
         output_path=args.output_path,
+        
         max_seeds=args.max_seeds,
         save_gif=args.gif,
         gif_path=args.gif_path,
         frame_duration_ms=args.frame_duration,
         draw_boundaries=not args.no_boundary,
         min_seed_distance=args.min_seed_distance,
+        
         save_delaunay=args.delaunay,
         delaunay_output_path=args.delaunay_output,
         draw_delaunay_edges=not args.no_delaunay_edge,
