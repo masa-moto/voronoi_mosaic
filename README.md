@@ -34,3 +34,6 @@ options:
 ![変換後](example/output.png)
 
 ![Delaunay分割による描画](example/output_delaunay.png)
+
+# supprimental information
+このレポジトリは他の[ページ](https://masa-moto.github.io/posts/2026/06/voronoi-mosaic/)からリンクされています。
