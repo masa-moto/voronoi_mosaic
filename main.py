@@ -4,8 +4,8 @@ from pathlib import Path
 import argparse
 
 import numpy as np
-from PIL import Image
-from scipy.spatial import cKDTree
+from PIL import Image, ImageDraw
+from scipy.spatial import cKDTree, Delaunay
 from tqdm import tqdm 
 
 
@@ -63,6 +63,89 @@ def render_mean_color_image(
         out_img[boundary] = 0  # 境界を黒で描く
 
     return out_img, errors
+
+
+def add_canvas_corners_to_seeds(
+    seeds: np.ndarray,
+    width: int,
+    height: int,
+)-> np.ndarray:
+    """
+    Delaunay 描画用に画像四隅にseedを追加する。
+    """
+    corners = np.array(
+        [
+            [0.0, 0.0],
+            [float(width-1), 0.0],
+            [0.0, float(height -1)],
+            [float(width-1), float(height -1)]            
+        ], dtype=np.float32
+    )
+    points = np.unique(
+        np.vstack([seeds.astype(np.float32), corners]),
+        axis = 0    
+    )
+    return points 
+
+def render_delaunay_mean_color_image(
+    img: np.ndarray,
+    seeds: np.ndarray,
+    draw_edges: bool = True,
+) -> np.ndarray:
+    """
+    seed 点の Delaunay 三角形分割を作り、
+    各三角形をその内部画素の平均色で塗った画像を返す。
+    """
+    height, width, _ = img.shape
+    img_u8 = np.clip(img, 0, 255).astype(np.uint8)
+
+    points = add_canvas_corners_to_seeds(seeds, width, height)
+
+    if len(points) < 3:
+        raise ValueError("Delaunay triangulation requires at least 3 points.")
+
+    tri = Delaunay(points)
+
+    pil_out = Image.new("RGB", (width, height), (0, 0, 0))
+    draw = ImageDraw.Draw(pil_out)
+
+    polygons: list[list[tuple[int, int]]] = []
+
+    for simplex in tri.simplices:
+        pts = points[simplex]
+
+        polygon = [
+            (
+                int(np.clip(round(float(x)), 0, width - 1)),
+                int(np.clip(round(float(y)), 0, height - 1)),
+            )
+            for x, y in pts
+        ]
+
+        mask = Image.new("L", (width, height), 0)
+        mask_draw = ImageDraw.Draw(mask)
+        mask_draw.polygon(polygon, fill=255)
+
+        mask_arr = np.asarray(mask, dtype=bool)
+
+        if not np.any(mask_arr):
+            continue
+
+        mean_rgb = img_u8[mask_arr].mean(axis=0)
+        fill = tuple(np.clip(mean_rgb, 0, 255).astype(np.uint8).tolist())
+
+        draw.polygon(polygon, fill=fill)
+        polygons.append(polygon)
+
+    if draw_edges:
+        for polygon in polygons:
+            draw.line(
+                polygon + [polygon[0]],
+                fill=(0, 0, 0),
+                width=1,
+            )
+
+    return np.asarray(pil_out)
 
 
 def select_new_seeds_from_region(
@@ -134,6 +217,9 @@ def greedy_voronoi_segmentation(
     frame_duration_ms: int = 180,
     draw_boundaries: bool = True,
     min_seed_distance: float = 4.0,
+    save_delaunay: bool = False,
+    delaunay_output_path: str|None = None,
+    draw_delaunay_edges: bool = True
 ) -> np.ndarray:
     """
     誤差最大の Voronoi 領域から seed を追加していく greedy segmentation。
@@ -227,6 +313,21 @@ def greedy_voronoi_segmentation(
 
     Image.fromarray(rendered).save(output_path)
 
+    if save_delaunay:
+        delaunay_img = render_delaunay_mean_color_image(
+            img=img,
+            seeds=seeds,
+            draw_edges=draw_delaunay_edges,
+        )
+
+        if delaunay_output_path is None:
+            out_path = Path(output_path)
+            delaunay_output_path = str(
+                out_path.with_name(f"{out_path.stem}_delaunay{out_path.suffix}")
+            )
+
+        Image.fromarray(delaunay_img).save(delaunay_output_path)
+
     if save_gif and frames:
         final_frame = Image.fromarray(rendered.copy())
         frames.append(final_frame)
@@ -285,6 +386,26 @@ def main() -> None:
         default=4.0,
         help="新規母点の最小間隔[pixel] (default: 4.0)",
     )
+    
+    parser.add_argument(
+        "--delaunay",
+        default = False,
+        action = "store_true",
+        help="最終seedによるDelaunay 三角分割画像の保存"
+    )
+    
+    parser.add_argument(
+        "--delaunay-output",
+        type=str,
+        default=None,
+        help = "Delaunay画像の出力先。未指定の場合はoutput_pathのstemに _delaunayを付ける"
+    )
+    
+    parser.add_argument(
+        "--no-delaunay-edge",
+        action="store_true",
+        help = "Delaunay 三角形の辺の描画の有無"
+    )
 
     args = parser.parse_args()
 
@@ -298,6 +419,9 @@ def main() -> None:
         frame_duration_ms=args.frame_duration,
         draw_boundaries=not args.no_boundary,
         min_seed_distance=args.min_seed_distance,
+        save_delaunay=args.delaunay,
+        delaunay_output_path=args.delaunay_output,
+        draw_delaunay_edges=not args.no_delaunay_edge,
     )
 if __name__ == "__main__":
     main()

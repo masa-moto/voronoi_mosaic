@@ -19,7 +19,9 @@ options:
 -  --no-boundary         境界線を描かない
 -  --min-seed-distance MIN_SEED_DISTANCE
                         新規母点の最小間隔[pixel] (default: 4.0)
-
+-  --delaubay           最終的に得られた母点を用いてドロネー三角形分割を適用した画像を作成する
+-  --delaunay_output    ドロネー三角形分割を適用した画像の保存先。指定されなければoutput_pathに _delaunayを付けたものが出力される。
+-  --no-delaunay-edge   ドロネー三角形分割の境界線を表示するかどうか。
 
 # example 
 背景が単色の塗りつぶしで、ある程度コントラストがはっきりしているとわかりやすくなると思われる。
